@@ -1,0 +1,27 @@
+# Environment / credentials — never commit
+.env
+
+# Data files (large — upload separately to Kaggle)
+data/raw_jobs.csv
+data/ai_jobs_global.csv
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.Python
+*.egg-info/
+dist/
+build/
+
+# Jupyter checkpoints
+.ipynb_checkpoints/
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# IDE
+.vscode/settings.json
+.idea/

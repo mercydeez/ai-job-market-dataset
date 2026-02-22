@@ -1,0 +1,18 @@
+{
+  "timestamp": "2026-02-22T10:20:52.207306+00:00",
+  "completed_at": "2026-02-22T10:25:36.813556+00:00",
+  "total_jobs_collected": 6946,
+  "jobs_per_source": {
+    "Adzuna": 6769,
+    "USAJobs": 177
+  },
+  "jobs_per_country": {
+    "United States": 1977,
+    "United Kingdom": 1480,
+    "Canada": 1355,
+    "Germany": 1084,
+    "Australia": 1050
+  },
+  "errors_count": 0,
+  "errors": []
+}

@@ -1,0 +1,19 @@
+# AI Job Market Dataset — Python dependencies
+# Install with: pip install -r requirements.txt
+
+# HTTP requests and retry logic
+requests>=2.31.0
+tenacity>=8.2.3
+
+# Environment variable management
+python-dotenv>=1.0.0
+
+# Data processing
+pandas>=2.0.0
+
+# Visualisation (EDA notebook)
+plotly>=5.18.0
+
+# Jupyter support (run eda_notebook.ipynb locally)
+notebook>=7.0.0
+ipykernel>=6.26.0

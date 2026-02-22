@@ -1,0 +1,65 @@
+name: Update AI Jobs Dataset
+
+on:
+  schedule:
+    # Every Monday at 06:00 UTC
+    - cron: "0 6 * * 1"
+  # Allow manual trigger from the Actions tab
+  workflow_dispatch:
+
+jobs:
+  collect-and-process:
+    name: Collect → Process → Commit
+    runs-on: ubuntu-latest
+
+    steps:
+      # ── 1. Checkout repo ───────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── 2. Set up Python ───────────────────────────────────────────────────
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      # ── 3. Install dependencies ────────────────────────────────────────────
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      # ── 4. Write .env from GitHub Secrets ─────────────────────────────────
+      - name: Create .env file
+        run: |
+          cat <<EOF > .env
+          ADZUNA_APP_ID=${{ secrets.ADZUNA_APP_ID }}
+          ADZUNA_APP_KEY=${{ secrets.ADZUNA_APP_KEY }}
+          USAJOBS_USER_AGENT=${{ secrets.USAJOBS_USER_AGENT }}
+          USAJOBS_AUTH_KEY=${{ secrets.USAJOBS_AUTH_KEY }}
+          EOF
+
+      # ── 5. Collect live job postings ───────────────────────────────────────
+      - name: Collect data
+        run: python collect_data.py
+
+      # ── 6. Clean and enrich ────────────────────────────────────────────────
+      - name: Process data
+        run: python process_data.py
+
+      # ── 7. Commit updated CSV + log back to the repo ───────────────────────
+      - name: Commit updated dataset
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Stage only the outputs — never commit .env
+          git add data/ai_jobs_global.csv
+          git add data/raw_jobs.csv
+          git add collection_log.json
+
+          # Only commit if anything actually changed
+          git diff --cached --quiet && echo "No changes to commit." && exit 0
+
+          TIMESTAMP=$(date -u "+%Y-%m-%d %H:%M UTC")
+          git commit -m "chore: auto-update dataset [${TIMESTAMP}]"
+          git push
