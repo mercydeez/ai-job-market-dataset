@@ -26,11 +26,13 @@ from typing import Any
 
 import pandas as pd
 import requests
+from requests import HTTPError
 from tenacity import (
     retry,
     retry_if_exception_type,
     stop_after_attempt,
-    wait_fixed,
+    wait_exponential,
+    before_sleep_log,
 )
 
 import config
@@ -49,16 +51,27 @@ log = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Retry decorator shared by all API calls
 # ---------------------------------------------------------------------------
-def _make_retry_decorator():
-    """Return a tenacity retry decorator using settings from config."""
-    return retry(
-        reraise=True,
-        stop=stop_after_attempt(config.RETRY_ATTEMPTS),
-        wait=wait_fixed(config.RETRY_WAIT_SECONDS),
-        retry=retry_if_exception_type(requests.RequestException),
-    )
 
-retry_on_request_error = _make_retry_decorator()
+def _is_retryable(exc: BaseException) -> bool:
+    """
+    Return True for network errors and HTTP 429 / 5xx responses.
+    HTTP 4xx errors (except 429) are not retried — they indicate bad
+    credentials or invalid requests that won't improve on retry.
+    """
+    if isinstance(exc, HTTPError):
+        status = exc.response.status_code if exc.response is not None else 0
+        return status == 429 or status >= 500
+    return isinstance(exc, requests.RequestException)
+
+
+retry_on_request_error = retry(
+    reraise=True,
+    stop=stop_after_attempt(config.RETRY_ATTEMPTS),
+    # Exponential backoff: 2 s → 4 s → 8 s, gives rate-limited APIs time to recover
+    wait=wait_exponential(multiplier=1, min=config.RETRY_WAIT_SECONDS, max=30),
+    retry=retry_if_exception_type(requests.RequestException),
+    before_sleep=before_sleep_log(log, logging.WARNING),
+)
 
 
 # ---------------------------------------------------------------------------
@@ -97,9 +110,12 @@ def _adzuna_fetch_page(
         "app_key": config.ADZUNA_APP_KEY,
         "what": search_term,
         "results_per_page": config.ADZUNA_RESULTS_PER_PAGE,
-        "content-type": "application/json",
     }
-    response = session.get(url, params=params, timeout=30)
+    # content-type belongs in headers, not query params
+    response = session.get(
+        url, params=params, timeout=30,
+        headers={"Content-Type": "application/json"},
+    )
     response.raise_for_status()
     return response.json()
 
@@ -181,15 +197,17 @@ def collect_adzuna(session: requests.Session) -> tuple[list[dict[str, Any]], lis
                 try:
                     raw = _adzuna_fetch_page(country, term, page, session)
                     page_jobs = _parse_adzuna_jobs(raw, country, term)
-                    if not page_jobs:
-                        break  # No more results for this search
-                    term_jobs.extend(page_jobs)
-                    time.sleep(config.RATE_LIMIT_SLEEP)
                 except Exception as exc:
                     msg = f"Adzuna error [{country} | {term} | page {page}]: {exc}"
                     log.warning(msg)
                     errors.append(msg)
+                    time.sleep(config.RATE_LIMIT_SLEEP)  # always sleep, even on error
                     break  # Skip remaining pages on error, continue next term
+                else:
+                    time.sleep(config.RATE_LIMIT_SLEEP)  # always sleep between calls
+                    if not page_jobs:
+                        break  # No more results for this search term
+                    term_jobs.extend(page_jobs)
 
             print(
                 f"Fetching '{term}' from {country.upper()}... "
@@ -262,8 +280,10 @@ def _parse_usajobs(
 
     for item in items:
         matched = item.get("MatchedObjectDescriptor", {})
-        remuneration = matched.get("PositionRemuneration", [{}])[0]
-        schedule_list = matched.get("PositionSchedule", [{}])
+        # Guard against API returning an empty PositionRemuneration list
+        remuneration_list = matched.get("PositionRemuneration") or []
+        remuneration = remuneration_list[0] if remuneration_list else {}
+        schedule_list = matched.get("PositionSchedule") or []
         schedule = schedule_list[0].get("Name", "") if schedule_list else ""
 
         jobs.append(
@@ -307,19 +327,21 @@ def collect_usajobs(session: requests.Session) -> tuple[list[dict[str, Any]], li
 
     for keyword in config.USAJOBS_SEARCH_TERMS:
         term_jobs: list[dict[str, Any]] = []
-        for page in range(1, 5):  # max 4 pages = 200 results
+        for page in range(1, config.USAJOBS_MAX_PAGES + 1):
             try:
                 raw = _usajobs_fetch_page(keyword, page, session)
                 page_jobs = _parse_usajobs(raw, keyword)
-                if not page_jobs:
-                    break
-                term_jobs.extend(page_jobs)
-                time.sleep(config.RATE_LIMIT_SLEEP)
             except Exception as exc:
                 msg = f"USAJobs error [{keyword} | page {page}]: {exc}"
                 log.warning(msg)
                 errors.append(msg)
+                time.sleep(config.RATE_LIMIT_SLEEP)  # always sleep, even on error
                 break
+            else:
+                time.sleep(config.RATE_LIMIT_SLEEP)  # always sleep between calls
+                if not page_jobs:
+                    break
+                term_jobs.extend(page_jobs)
 
         print(f"Fetching '{keyword}' from USAJobs... {len(term_jobs)} jobs found")
         all_jobs.extend(term_jobs)
@@ -367,10 +389,12 @@ def save_collection_log(
         "errors": errors,
     }
 
-    with open(config.COLLECTION_LOG, "w", encoding="utf-8") as fh:
-        json.dump(log_data, fh, indent=2, ensure_ascii=False)
-
-    log.info("Collection log saved → %s", config.COLLECTION_LOG)
+    try:
+        with open(config.COLLECTION_LOG, "w", encoding="utf-8") as fh:
+            json.dump(log_data, fh, indent=2, ensure_ascii=False)
+        log.info("Collection log saved → %s", config.COLLECTION_LOG)
+    except OSError as exc:
+        log.warning("Could not write collection log: %s", exc)
 
 
 # ---------------------------------------------------------------------------
@@ -390,7 +414,7 @@ def main() -> None:
     log.info("=== AI Job Market Collection Started ===")
 
     # ------------------------------------------------------------------
-    # Guard: ensure Adzuna credentials are present
+    # Guard: ensure credentials are present and not placeholder values
     # ------------------------------------------------------------------
     if not config.ADZUNA_APP_ID or not config.ADZUNA_APP_KEY:
         log.error(
@@ -398,6 +422,23 @@ def main() -> None:
             "Get free credentials at https://developer.adzuna.com"
         )
         raise SystemExit(1)
+
+    _placeholder_fragments = ("your_", "example.com", "here")
+    if any(p in config.ADZUNA_APP_ID for p in _placeholder_fragments) or any(
+        p in config.ADZUNA_APP_KEY for p in _placeholder_fragments
+    ):
+        log.error(
+            "ADZUNA_APP_ID / ADZUNA_APP_KEY appear to still be placeholders.\n"
+            "Update your .env file with real credentials."
+        )
+        raise SystemExit(1)
+
+    if any(p in config.USAJOBS_USER_AGENT for p in _placeholder_fragments):
+        log.warning(
+            "USAJOBS_USER_AGENT looks like a placeholder ('%s').\n"
+            "Set it to your real email address in .env for USAJobs to work.",
+            config.USAJOBS_USER_AGENT,
+        )
 
     all_jobs: list[dict[str, Any]] = []
     all_errors: list[str] = []

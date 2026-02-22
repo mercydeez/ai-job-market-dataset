@@ -378,7 +378,15 @@ def main() -> None:
     df_clean = process(df_raw)
 
     os.makedirs(config.DATA_DIR, exist_ok=True)
-    df_clean.to_csv(output_path, index=False, encoding="utf-8")
+    try:
+        df_clean.to_csv(output_path, index=False, encoding="utf-8")
+    except OSError as exc:
+        log.error(
+            "Failed to write output CSV to '%s': %s\n"
+            "If the file is open in another program (e.g. Excel), close it and retry.",
+            output_path, exc,
+        )
+        raise
 
     log.info(
         "=== Processing Complete ===\n"
@@ -399,9 +407,11 @@ def main() -> None:
     print(f"Remote types     : {df_clean['remote_type'].value_counts().to_dict()}")
     salary_df = df_clean["salary_min"].dropna()
     if not salary_df.empty:
+        salary_max_series = df_clean["salary_max"].dropna()
+        max_val = salary_max_series.max() if not salary_max_series.empty else float("nan")
         print(
             f"Salary (USD) min : ${salary_df.min():,.0f}  "
-            f"max : ${df_clean['salary_max'].dropna().max():,.0f}  "
+            f"max : ${max_val:,.0f}  "
             f"median : ${salary_df.median():,.0f}"
         )
 

@@ -70,13 +70,14 @@ USAJOBS_SEARCH_TERMS: list[str] = [
 # ---------------------------------------------------------------------------
 ADZUNA_RESULTS_PER_PAGE: int = 50   # Max allowed by Adzuna free tier
 ADZUNA_MAX_PAGES: int = 4           # Up to 200 results per search term / country
+USAJOBS_MAX_PAGES: int = 4          # Up to 200 results per USAJobs search term
 
 # ---------------------------------------------------------------------------
 # Retry / rate-limit settings
 # ---------------------------------------------------------------------------
 RETRY_ATTEMPTS: int = 3
-RETRY_WAIT_SECONDS: int = 2
-RATE_LIMIT_SLEEP: float = 1.0       # Seconds between consecutive API calls
+RETRY_WAIT_SECONDS: int = 2       # Minimum wait; retries use exponential backoff
+RATE_LIMIT_SLEEP: float = 1.0     # Seconds between every API call (success or error)
 
 # ---------------------------------------------------------------------------
 # Currency conversion rates → USD

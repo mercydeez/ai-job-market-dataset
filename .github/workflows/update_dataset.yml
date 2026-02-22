@@ -52,10 +52,10 @@ jobs:
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Stage only the outputs — never commit .env
-          git add data/ai_jobs_global.csv
-          git add data/raw_jobs.csv
-          git add collection_log.json
+          # Force-add outputs that are listed in .gitignore
+          git add -f data/ai_jobs_global.csv
+          git add -f data/raw_jobs.csv
+          git add    collection_log.json
 
           # Only commit if anything actually changed
           git diff --cached --quiet && echo "No changes to commit." && exit 0
