@@ -63,3 +63,16 @@ jobs:
           TIMESTAMP=$(date -u "+%Y-%m-%d %H:%M UTC")
           git commit -m "chore: auto-update dataset [${TIMESTAMP}]"
           git push
+
+      # ── 8. Push updated CSV to Kaggle ──────────────────────────────────────
+      - name: Upload new version to Kaggle
+        env:
+          KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+          KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
+        run: |
+          pip install --quiet kaggle
+          mkdir -p ~/.kaggle
+          echo "{\"username\":\"$KAGGLE_USERNAME\",\"key\":\"$KAGGLE_KEY\"}" > ~/.kaggle/kaggle.json
+          chmod 600 ~/.kaggle/kaggle.json
+          TIMESTAMP=$(date -u "+%Y-%m-%d")
+          kaggle datasets version -p data/ -m "Weekly auto-update [${TIMESTAMP}]" --dir-mode zip
