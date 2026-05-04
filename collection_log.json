@@ -1,20 +1,18 @@
 {
-  "timestamp": "2026-04-27T07:59:46.819704+00:00",
-  "completed_at": "2026-04-27T08:06:10.011978+00:00",
-  "total_jobs_collected": 7011,
+  "timestamp": "2026-05-04T08:10:54.719197+00:00",
+  "completed_at": "2026-05-04T08:15:39.137599+00:00",
+  "total_jobs_collected": 7217,
   "jobs_per_source": {
-    "Adzuna": 6766,
-    "USAJobs": 245
+    "Adzuna": 6941,
+    "USAJobs": 276
   },
   "jobs_per_country": {
-    "United States": 1973,
-    "United Kingdom": 1438,
-    "Canada": 1387,
-    "Australia": 1211,
-    "Germany": 1002
+    "United States": 2076,
+    "United Kingdom": 1476,
+    "Canada": 1394,
+    "Australia": 1270,
+    "Germany": 1001
   },
-  "errors_count": 1,
-  "errors": [
-    "Adzuna error [us | Machine Learning Engineer | page 4]: 503 Server Error: Service Temporarily Unavailable for url: https://api.adzuna.com/v1/api/jobs/us/search/4?app_id=7a4be198&app_key=1dfc9319f8c2008c220c80cae71072aa&what=Machine+Learning+Engineer&results_per_page=50"
-  ]
+  "errors_count": 0,
+  "errors": []
 }
