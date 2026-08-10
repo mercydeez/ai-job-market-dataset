@@ -1,17 +1,17 @@
 {
-  "timestamp": "2026-08-03T08:53:16.036566+00:00",
-  "completed_at": "2026-08-03T08:58:29.376164+00:00",
-  "total_jobs_collected": 7375,
+  "timestamp": "2026-08-10T07:01:08.994715+00:00",
+  "completed_at": "2026-08-10T07:06:46.468307+00:00",
+  "total_jobs_collected": 7434,
   "jobs_per_source": {
-    "Adzuna": 7119,
-    "USAJobs": 256
+    "Adzuna": 7164,
+    "USAJobs": 270
   },
   "jobs_per_country": {
-    "United States": 2056,
-    "United Kingdom": 1465,
-    "Canada": 1400,
-    "Germany": 1249,
-    "Australia": 1205
+    "United States": 2070,
+    "United Kingdom": 1470,
+    "Canada": 1398,
+    "Germany": 1272,
+    "Australia": 1224
   },
   "errors_count": 0,
   "errors": []
